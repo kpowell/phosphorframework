@@ -210,7 +210,6 @@ function PhosphorPlayer(bindto_id){
     this._onLoadHandler = "";
     this._currentFrameCallback = null;
     this._playbackFinishedCallback = null;
-    var worker = new Worker('worker.js');
     var isReady = true;
 
 
