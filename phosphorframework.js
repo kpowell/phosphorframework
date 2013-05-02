@@ -301,16 +301,7 @@ function PhosphorPlayer(bindto_id){
 
             }
 
-            var concatenated = false;
-            for ( var i = 0, l = cachedBitStream.length; i < l; ++i ) {
-              if ( cachedBitStream[i].imgindex === blit.imgindex ) {
-                cachedBitStream[i].blits = cachedBitStream[i].blits.concat(blit.blits);
-                concatenated = true;
-              }
-            }
-            if ( ! concatenated ) {
-              cachedBitStream.push(blit);
-            }
+            cachedBitStream.push(blit);
         }
 
         Base64BitStream.cache[blits] = cachedBitStream;
@@ -522,6 +513,10 @@ function PhosphorPlayer(bindto_id){
                 }
             }else{
                 self._atlasImagesLoaded = true;
+                // pre-cache all frames before running the onLoad handler
+                for ( var i = 0; i < self._frameCount; ++i ) {
+                  _buildbitStreamObj(self._jsonData.frames[i].x);
+                }
                 self._onLoadHandler();
                 return;
             }
