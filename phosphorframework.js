@@ -298,6 +298,7 @@ function PhosphorPlayer(bindto_id){
                     w2: w2,
                     h2: h2
                 };
+
                 var lastBlit = blit.blits[blit.blits.length - 1];
                 if ( lastBlit && lastBlit.sx === sx && lastBlit.sy === sy && lastBlit.w1 === w1 && lastBlit.h1 === h1 && lastBlit.dy === dy && lastBlit.dx + lastBlit.w2 === dx ) {
                     if ( ! lastBlit.img ) {
@@ -315,7 +316,6 @@ function PhosphorPlayer(bindto_id){
                     lastBlit.w2 += w2;
                     continue;
                 }
-
                 blit.blits.push(obj);
 
             }
@@ -332,7 +332,6 @@ function PhosphorPlayer(bindto_id){
 
             cachedBitStream.push(blit);
         }
-
         Base64BitStream.cache[blits] = cachedBitStream;
       }
 
@@ -588,6 +587,10 @@ function PhosphorPlayer(bindto_id){
     this.loop = function (setLoop) {
         self._loop = setLoop;
     };
+
+    this.width = function() {
+        return self._canvas.width;
+    }
 
     var _bind = function(img_id)
     {
