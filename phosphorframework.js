@@ -224,7 +224,7 @@ function PhosphorPlayer(bindto_id){
         ctx.fillText(alertText, self._canvas.width/2 - metrics.width/2, self._canvas.height/2);
         console.log(alertText + " Confirm that your phosphor framework is the same or newer than the composition.  Composition version: " + compVersion + ", framework version: " + self.frameworkVersion);
     };
-
+    var _canvasCache = {};
     var _buildbitStreamObj = function(blits) {
 
       var cachedBitStream = Base64BitStream.cache[blits];
@@ -301,7 +301,11 @@ function PhosphorPlayer(bindto_id){
                 var lastBlit = blit.blits[blit.blits.length - 1];
                 if ( lastBlit && lastBlit.sx === sx && lastBlit.sy === sy && lastBlit.w1 === w1 && lastBlit.h1 === h1 && lastBlit.dy === dy && lastBlit.dx + lastBlit.w2 === dx ) {
                     if ( ! lastBlit.img ) {
-                        var canvas = document.createElement('canvas');
+                        var source = [sx, sy, w1, h1].join('');
+                        var canvas = _canvasCache[source];
+                        if ( ! canvas ) {
+                          canvas = _canvasCache[source] = document.createElement('canvas');
+                        }
                         var ctx = canvas.getContext('2d');
                         canvas.width = w2;
                         canvas.height = h2;
