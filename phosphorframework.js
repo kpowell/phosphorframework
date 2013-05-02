@@ -253,10 +253,10 @@ function PhosphorPlayer(bindto_id){
             bitStream.skipBits(52); //reserved
 
             var blit = {
-              frameType: 1, //frameType,
-              imgBit: self._imgArray[imgindex],
-              imgindex: imgindex,
-              blits: []
+                frameType: frameType,
+                imgBit: self._imgArray[imgindex],
+                imgindex: imgindex,
+                blits: []
             };
 
             var offset = bitStream.bytePos();
@@ -288,17 +288,42 @@ function PhosphorPlayer(bindto_id){
                     h2 = (bitStream.readBits(destHeightBitDepth) + 1) * blockSize;
                 }
 
-                blit.blits.push({
-                  sx: sx,
-                  sy: sy,
-                  w1: w1,
-                  h1: h1,
-                  dx: dx,
-                  dy: dy,
-                  w2: w2,
-                  h2: h2
-                });
+                var obj = {
+                    sx: sx,
+                    sy: sy,
+                    w1: w1,
+                    h1: h1,
+                    dx: dx,
+                    dy: dy,
+                    w2: w2,
+                    h2: h2
+                };
+                var lastBlit = blit.blits[blit.blits.length - 1];
+                if ( lastBlit && lastBlit.sx === sx && lastBlit.sy === sy && lastBlit.w1 === w1 && lastBlit.h1 === h1 && lastBlit.dy === dy && lastBlit.dx + lastBlit.w2 === dx ) {
+                    if ( ! lastBlit.img ) {
+                        var canvas = document.createElement('canvas');
+                        var ctx = canvas.getContext('2d');
+                        canvas.width = w2;
+                        canvas.height = h2;
+                        ctx.drawImage(blit.imgBit, sx, sy, w1, h1, 0, 0, w2, h2);
+                        lastBlit.img = self._canvas.getContext('2d').createPattern(canvas, 'repeat');
+                    }
+                    lastBlit.w2 += w2;
+                    continue;
+                }
 
+                blit.blits.push(obj);
+
+            }
+
+            // This might be overkill, but let's give it a try
+            for ( var i = blit.blits.length - 1; i >= 1; --i ) {
+              var lastBlit = blit.blits[i-1];
+              var thisBlit = blit.blits[i];
+              if ( lastBlit && lastBlit.sx === thisBlit.sx && lastBlit.sy === thisBlit.sy && lastBlit.w1 === thisBlit.w1 && lastBlit.h1 === thisBlit.h1 && lastBlit.dx === thisBlit.dx && lastBlit.w2 === thisBlit.w2 ) {
+                lastBlit.h2 += thisBlit.h2;
+                blit.blits.splice(i, 1);
+              }
             }
 
             cachedBitStream.push(blit);
@@ -309,18 +334,6 @@ function PhosphorPlayer(bindto_id){
 
       return cachedBitStream;
 
-    };
-
-    var lastDraw = {};
-    var dirtyCompare = function(array1, array2) {
-      if(array1.length!==array2.length)
-        return false;
-      for(var i=0; i<array1.length; i++) {
-        if(array1[i]!==array2[i]) {
-            return false;
-        }
-      }
-      return true;
     };
 
     var _doFrameBlits = function(blits, clearBeforeBlitting, debugBlits)
@@ -336,48 +349,48 @@ function PhosphorPlayer(bindto_id){
         var blit;
 
         while ( bit = bitStream[i++] ) {
-          var j = 0;
-          //clear the frame if we are an iframe (much faster than clearing each blit)
-          if(bit.frameType === 0 && !isIFrame){
-              isIFrame = true;
-              var displayWidth = self._jsonData.framesize.width;
-              var displayHeight = self._jsonData.framesize.height;
-              ctx.clearRect(0, 0, displayWidth, displayHeight);
-          }
-
-          while ( blit = bit.blits[j++] ) {
-
-            var dx = blit.dx;
-            var dy = blit.dy;
-            var sx = blit.sx;
-            var sy = blit.sy;
-            var w1 = blit.w1;
-            var w2 = blit.w2;
-            var h1 = blit.h1;
-            var h2 = blit.h2;
-
-            var destination = [dx, dy, w2, h2].join('');
-            thisDraw[destination] = [bit.imgindex, sx, sy, w1, h1];
-
-            if ( lastDraw[destination] && dirtyCompare(lastDraw[destination], thisDraw[destination]) ) {
-              continue;
+            var j = 0;
+            //clear the frame if we are an iframe (much faster than clearing each blit)
+            if(bit.frameType === 0 && !isIFrame){
+                isIFrame = true;
+                var displayWidth = self._jsonData.framesize.width;
+                var displayHeight = self._jsonData.framesize.height;
+                ctx.clearRect(0, 0, displayWidth, displayHeight);
             }
 
-            //clear the blit if we are a pframe
-            if(bit.frameType == 1 && clearBeforeBlitting){
-                ctx.clearRect(dx, dy, w2, h2);
+            while ( ( blit = bit.blits[j++] ) ) {
+                if ( blit === 'combined' ) continue;
+                var dx = blit.dx;
+                var dy = blit.dy;
+                var sx = blit.sx;
+                var sy = blit.sy;
+                var w1 = blit.w1;
+                var w2 = blit.w2;
+                var h1 = blit.h1;
+                var h2 = blit.h2;
+
+
+                //clear the blit if we are a pframe
+                if(bit.frameType == 1 && clearBeforeBlitting){
+                    ctx.clearRect(dx, dy, w2, h2);
+                }
+                if ( ! blit.img ) {
+                    ctx.drawImage(bit.imgBit, sx, sy, w1, h1, dx, dy, w2, h2);
+                } else {
+                    var oldFill = ctx.fillStyle;
+                    ctx.fillStyle = blit.img;
+                    ctx.fillRect(dx, dy, w2, h2);
+                    ctx.fillStyle = oldFill;
+                }
+
+                if(debugBlits){
+                    ctx.lineWidth = 1;
+                    ctx.strokeStyle = "red";
+                    ctx.strokeRect(dx+1,dy+1,w2-2,h2-2);
+                }
+
             }
-
-            ctx.drawImage(bit.imgBit, sx, sy, w1, h1, dx, dy, w2, h2);
-
-            if(debugBlits){
-                ctx.lineWidth="1";
-                ctx.strokeStyle="red";
-            }
-
-          }
         }
-        lastDraw = thisDraw;
         isReady = true;
 
     };
@@ -548,7 +561,6 @@ function PhosphorPlayer(bindto_id){
         if (self._animationId === -1) {
             return;
         }
-
         cancelAnimationFrame(self._animationId);
         self._animationId = -1;
     };
