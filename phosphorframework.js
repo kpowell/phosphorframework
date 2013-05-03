@@ -529,10 +529,6 @@ function PhosphorPlayer(bindto_id){
                 }
             }else{
                 self._atlasImagesLoaded = true;
-                // pre-cache all frames before running the onLoad handler
-                for ( var i = 0; i < self._frameCount; ++i ) {
-                  _buildbitStreamObj(self._jsonData.frames[i].x);
-                }
                 self._onLoadHandler();
                 return;
             }
