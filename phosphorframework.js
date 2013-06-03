@@ -29,174 +29,167 @@
 (function() {
     // http://paulirish.com/2011/requestanimationframe-for-smart-animating/
     // http://my.opera.com/emoller/blog/2011/12/20/requestanimationframe-for-smart-er-animating
-
     // requestAnimationFrame polyfill by Erik Möller
     // fixes from Paul Irish and Tino Zijdel
-
     // version: https://gist.github.com/raw/1579671/7f515ade253afbc860dac1f84e21998d54359d79/rAF.js
-
     var lastTime = 0;
     var vendors = ['ms', 'moz', 'webkit', 'o'];
-    for(var x = 0; x < vendors.length && !window.requestAnimationFrame; ++x) {
-        window.requestAnimationFrame = window[vendors[x]+'RequestAnimationFrame'];
-        window.cancelAnimationFrame = window[vendors[x]+'CancelAnimationFrame']
-                                   || window[vendors[x]+'CancelRequestAnimationFrame'];
+    for (var x = 0; x < vendors.length && !window.requestAnimationFrame; ++x) {
+        window.requestAnimationFrame = window[vendors[x] + 'RequestAnimationFrame'];
+        window.cancelAnimationFrame = window[vendors[x] + 'CancelAnimationFrame'] || window[vendors[x] + 'CancelRequestAnimationFrame'];
     }
 
-    if (!window.requestAnimationFrame)
-        window.requestAnimationFrame = function(callback, element) {
-            var currTime = new Date().getTime();
-            var timeToCall = Math.max(0, 16 - (currTime - lastTime));
-            var id = window.setTimeout(function() { callback(currTime + timeToCall); },
-              timeToCall);
-            lastTime = currTime + timeToCall;
-            return id;
-        };
+    if (!window.requestAnimationFrame) window.requestAnimationFrame = function(callback, element) {
+        var currTime = new Date().getTime();
+        var timeToCall = Math.max(0, 16 - (currTime - lastTime));
+        var id = window.setTimeout(function() {
+            callback(currTime + timeToCall);
+        }, timeToCall);
+        lastTime = currTime + timeToCall;
+        return id;
+    };
 
-    if (!window.cancelAnimationFrame)
-        window.cancelAnimationFrame = function(id) {
-            clearTimeout(id);
-        };
+    if (!window.cancelAnimationFrame) window.cancelAnimationFrame = function(id) {
+        clearTimeout(id);
+    };
 }());
 
-function PhosphorPlayer(bindto_id){
+function PhosphorPlayer(bindto_id) {
 
     var self = this;
     this.bindId = bindto_id;
     this.frameworkVersion = 1;
 
     var Base64BitStream = function(inputString) {
-        var _keyStr = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/=";
-        var _bytePosition = 0;
-        var _bitPosition = 0;
-        var _byteArray = [];
+            var _keyStr = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/=";
+            var _bytePosition = 0;
+            var _bitPosition = 0;
+            var _byteArray = [];
 
-        var setInputString = function(input) {
-            if(!input) return;
-            var byte1, byte2, byte3,
-            enc1, enc2, enc3, enc4,
-            i = 0,
-            j = 0,
-            bytes = (input.length/4) * 3;
+            var setInputString = function(input) {
+                    if (!input) return;
+                    var byte1, byte2, byte3, enc1, enc2, enc3, enc4, i = 0,
+                        j = 0,
+                        bytes = (input.length / 4) * 3;
 
-            for (i=0; i<bytes; i+=3) {
+                    for (i = 0; i < bytes; i += 3) {
 
-                //get the 3 octects in 4 ascii chars
-                enc1 = _keyStr.indexOf(input.charAt(j++));
-                enc2 = _keyStr.indexOf(input.charAt(j++));
-                enc3 = _keyStr.indexOf(input.charAt(j++));
-                enc4 = _keyStr.indexOf(input.charAt(j++));
+                        //get the 3 octects in 4 ascii chars
+                        enc1 = _keyStr.indexOf(input.charAt(j++));
+                        enc2 = _keyStr.indexOf(input.charAt(j++));
+                        enc3 = _keyStr.indexOf(input.charAt(j++));
+                        enc4 = _keyStr.indexOf(input.charAt(j++));
 
-                byte1 = (enc1 << 2) | (enc2 >> 4);
-                byte2 = ((enc2 & 15) << 4) | (enc3 >> 2);
-                byte3 = ((enc3 & 3) << 6) | enc4;
+                        byte1 = (enc1 << 2) | (enc2 >> 4);
+                        byte2 = ((enc2 & 15) << 4) | (enc3 >> 2);
+                        byte3 = ((enc3 & 3) << 6) | enc4;
 
-                _byteArray.push(byte1);
-                _byteArray.push(byte2);
-                _byteArray.push(byte3);
+                        _byteArray.push(byte1);
+                        _byteArray.push(byte2);
+                        _byteArray.push(byte3);
 
-            }
+                    }
+                };
+
+            var _updatePositions = function() {
+                    //reset all out bit/byte positions
+                    while (_bitPosition < 0) {
+                        _bytePosition--;
+                        _bitPosition += 8;
+                    }
+
+                    while (_bitPosition > 7) {
+                        _bytePosition++;
+                        _bitPosition -= 8;
+                    }
+                };
+
+            var readByte = function() {
+                    var result = readBits(8);
+                    return result;
+                };
+
+            var readBytes = function(byteCount) {
+                    var accumulator = 0,
+                        i;
+                    for (i = 0; i < byteCount; i++) {
+                        accumulator = (accumulator << 8) + readByte();
+                    }
+                    return accumulator;
+                };
+
+            var readBits = function(bitCount) {
+                    var accumulator = 0;
+
+                    if (bitCount > 8) {
+                        accumulator += readBits(8) << (bitCount - 8);
+                        bitCount -= 8;
+                    }
+
+                    if ((_bitPosition + bitCount) > 8) {
+                        var firstBitsLength = 8 - _bitPosition;
+                        accumulator += readBits(firstBitsLength) << (bitCount - firstBitsLength);
+                        bitCount -= firstBitsLength;
+                    }
+
+                    var leftShift = 8 - bitCount - _bitPosition;
+                    var bitMask = 0xFF >> (8 - bitCount);
+                    bitMask = bitMask << leftShift;
+
+                    var bits = _byteArray[_bytePosition] & bitMask;
+
+                    accumulator += (bits >> leftShift);
+
+                    _bitPosition += bitCount;
+
+                    //reset all out bit/byte positions
+                    _updatePositions();
+
+                    return accumulator;
+                };
+
+            var skipBytes = function(byteCount) {
+                    _bytePosition += byteCount;
+                };
+
+            var skipBits = function(bitCount) {
+                    _bitPosition += bitCount;
+                    _updatePositions();
+                };
+
+            var eof = function() {
+                    return (_bytePosition >= _byteArray.length);
+                };
+
+            var bytePos = function() {
+                    return _bytePosition;
+                };
+
+            var jumpToOffsetByteBits = function(byteoffset, bitoffset) {
+                    _bytePosition = byteoffset;
+                    _bitPosition = bitoffset;
+                    _updatePositions();
+                };
+
+            var byteLength = function() {
+                    return _byteArray.length;
+                };
+
+            //do the class init
+            setInputString(inputString);
+
+            return {
+                readByte: readByte,
+                readBytes: readBytes,
+                readBits: readBits,
+                skipBytes: skipBytes,
+                skipBits: skipBits,
+                eof: eof,
+                bytePos: bytePos,
+                jumpToOffsetByteBits: jumpToOffsetByteBits,
+                byteLength: byteLength
+            };
         };
-
-        var _updatePositions = function() {
-            //reset all out bit/byte positions
-            while ( _bitPosition < 0){
-                _bytePosition--;
-                _bitPosition += 8;
-            }
-
-            while ( _bitPosition > 7){
-                _bytePosition++;
-                _bitPosition -= 8;
-            }
-        };
-
-        var readByte = function() {
-            var result = readBits(8);
-            return result;
-        };
-
-        var readBytes = function(byteCount) {
-            var accumulator = 0, i;
-            for(i=0; i < byteCount; i++) {
-                accumulator = (accumulator << 8) + readByte();
-            }
-            return accumulator;
-        };
-
-        var readBits = function(bitCount) {
-            var accumulator = 0;
-
-            if(bitCount > 8) {
-                accumulator += readBits(8) << (bitCount - 8);
-                bitCount -= 8;
-            }
-
-            if((_bitPosition + bitCount) > 8){
-                var firstBitsLength = 8 - _bitPosition;
-                accumulator += readBits(firstBitsLength) << (bitCount - firstBitsLength);
-                bitCount -= firstBitsLength;
-            }
-
-            var leftShift = 8 - bitCount - _bitPosition;
-            var bitMask = 0xFF >> (8 - bitCount);
-            bitMask = bitMask << leftShift;
-
-            var bits = _byteArray[_bytePosition] & bitMask;
-
-            accumulator += (bits >> leftShift);
-
-            _bitPosition += bitCount;
-
-            //reset all out bit/byte positions
-            _updatePositions();
-
-            return accumulator;
-        };
-
-        var skipBytes = function(byteCount) {
-            _bytePosition += byteCount;
-        };
-
-        var skipBits = function(bitCount) {
-            _bitPosition += bitCount;
-            _updatePositions();
-        };
-
-        var eof = function() {
-            return (_bytePosition >= _byteArray.length);
-        };
-
-        var bytePos = function() {
-            return _bytePosition;
-        };
-
-        var jumpToOffsetByteBits = function(byteoffset, bitoffset) {
-            _bytePosition = byteoffset;
-            _bitPosition = bitoffset;
-            _updatePositions();
-        };
-
-        var byteLength = function() {
-            return _byteArray.length;
-        };
-
-        //do the class init
-        setInputString(inputString);
-
-        return {
-            readByte : readByte,
-            readBytes : readBytes,
-            readBits : readBits,
-            skipBytes : skipBytes,
-            skipBits : skipBits,
-            eof : eof,
-            bytePos : bytePos,
-        jumpToOffsetByteBits: jumpToOffsetByteBits,
-        byteLength: byteLength
-        };
-    };
-    window.bitstreamcache = Base64BitStream.cache = {};
 
     this._debug = false;
     this._canvas = null;
@@ -210,301 +203,249 @@ function PhosphorPlayer(bindto_id){
     this._onLoadHandler = "";
     this._currentFrameCallback = null;
     this._playbackFinishedCallback = null;
-    var isReady = true;
 
 
     var alertFrameworkVersion = function(compVersion) {
-        var ctx = self._canvas.getContext('2d');
-        var alertText = "Phosphor Framework Version Mismatch!";
-        var metrics = ctx.measureText(alertText);
-        ctx.fillStyle = "red";
-        ctx.fillRect(self._canvas.width/2 - metrics.width/2 - 5,self._canvas.height/2 - 20,metrics.width+25, 30);
-        ctx.fillStyle = "white";
-        ctx.font = "normal 12px Letter Faces";
-        ctx.fillText(alertText, self._canvas.width/2 - metrics.width/2, self._canvas.height/2);
-        console.log(alertText + " Confirm that your phosphor framework is the same or newer than the composition.  Composition version: " + compVersion + ", framework version: " + self.frameworkVersion);
-    };
-    var _canvasCache = {};
-    var _buildbitStreamObj = function(blits) {
+            var ctx = self._canvas.getContext('2d');
+            var alertText = "Phosphor Framework Version Mismatch!";
+            var metrics = ctx.measureText(alertText);
+            ctx.fillStyle = "red";
+            ctx.fillRect(self._canvas.width / 2 - metrics.width / 2 - 5, self._canvas.height / 2 - 20, metrics.width + 25, 30);
+            ctx.fillStyle = "white";
+            ctx.font = "normal 12px Letter Faces";
+            ctx.fillText(alertText, self._canvas.width / 2 - metrics.width / 2, self._canvas.height / 2);
+            console.log(alertText + " Confirm that your phosphor framework is the same or newer than the composition.  Composition version: " + compVersion + ", framework version: " + self.frameworkVersion);
+        };
 
-      var cachedBitStream = Base64BitStream.cache[blits];
+    var CachedBitStream = (function() {
 
-      if ( ! cachedBitStream ) {
-        cachedBitStream = [];
-        bitStream = new Base64BitStream(blits);
+      var CachedBitStream = function(canvas) {
+        this.blits = [];
+        this.buffer = document.createElement('canvas');
+        this.buffer.width = canvas.width;
+        this.buffer.height = canvas.height;
+        this.ctx = this.buffer.getContext('2d');
+      };
 
-        while((bitStream.byteLength() - bitStream.bytePos()) > 10){
+      CachedBitStream.prototype.cached = true;
 
-            //pps
-            bitStream.skipBytes(1); //version
-            var imgindex = bitStream.readByte();
-            var blockSize = bitStream.readBits(5);
-            var frameType = bitStream.readBits(3);
-            var blitArrayByteCount = bitStream.readBytes(2);
+      return CachedBitStream;
 
-            var srcXYBitDepth = bitStream.readBits(4);
-            var destXBitDepth = bitStream.readBits(4);
-            var destYBitDepth = bitStream.readBits(4);
-            var srcWidthBitDepth = bitStream.readBits(4);
-            var srcHeightBitDepth = bitStream.readBits(4);
-            var destWidthBitDepth = bitStream.readBits(4);
-            var destHeightBitDepth = bitStream.readBits(4);
+    })();
 
-            bitStream.skipBits(52); //reserved
+    var _blitCache = {};
+    var _getStream = function(blits) {
+            if (!_blitCache[blits]) {
+                _blitCache[blits] = Base64BitStream(blits);
+            }
+            return _blitCache[blits];
+        };
 
-            var blit = {
-                frameType: frameType,
-                imgBit: self._imgArray[imgindex],
-                imgindex: imgindex,
-                blits: []
-            };
+    var _doOriginalFrameBlits = function(blits, bitStream, clearBeforeBlitting, debugBlits) {
+            var ctx = self._canvas.getContext('2d');
+            var isIFrame = false;
 
-            var offset = bitStream.bytePos();
+            var _cached = _blitCache[blits];
+            var cached = _cached.cached;
+            if ( ! cached ) {
+              _cached = _blitCache[blits] = new CachedBitStream(self._canvas);
+            }
 
-            for(var i = 0; i < blitArrayByteCount; i++)
-            {
+            if (bitStream) {
+                var readByte = bitStream.readByte,
+                    readBytes = bitStream.readBytes,
+                    readBits = bitStream.readBits;
+                while ((bitStream.byteLength() - bitStream.bytePos()) > 10) {
 
-                var sx = bitStream.readBits(srcXYBitDepth) * blockSize;
-                var sy = bitStream.readBits(srcXYBitDepth) * blockSize;
+                    //pps
+                    bitStream.skipBytes(1); //version
+                    var imgindex = readByte();
+                    var blockSize = readBits(5);
+                    var frameType = readBits(3);
+                    var blitArrayByteCount = readBytes(2);
 
-                var w1 = 1 * blockSize;
-                var h1 = 1 * blockSize;
-                if(srcWidthBitDepth > 0){
-                    w1 = (bitStream.readBits(srcWidthBitDepth) + 1) * blockSize;
-                }
-                if(srcHeightBitDepth > 0){
-                    h1 = (bitStream.readBits(srcHeightBitDepth) + 1) * blockSize;
-                }
+                    var srcXYBitDepth = readBits(4);
+                    var destXBitDepth = readBits(4);
+                    var destYBitDepth = readBits(4);
+                    var srcWidthBitDepth = readBits(4);
+                    var srcHeightBitDepth = readBits(4);
+                    var destWidthBitDepth = readBits(4);
+                    var destHeightBitDepth = readBits(4);
 
-                var dx = bitStream.readBits(destXBitDepth) * blockSize;
-                var dy = bitStream.readBits(destYBitDepth) * blockSize;
+                    bitStream.skipBits(52); //reserved
 
-                var w2 = w1;
-                var h2 = h1;
-                if(destWidthBitDepth > 0){
-                    w2 = (bitStream.readBits(destWidthBitDepth) + 1) * blockSize;
-                }
-                if(destHeightBitDepth > 0){
-                    h2 = (bitStream.readBits(destHeightBitDepth) + 1) * blockSize;
-                }
-
-                var obj = {
-                    sx: sx,
-                    sy: sy,
-                    w1: w1,
-                    h1: h1,
-                    dx: dx,
-                    dy: dy,
-                    w2: w2,
-                    h2: h2
-                };
-
-                var lastBlit = blit.blits[blit.blits.length - 1];
-                if ( lastBlit && lastBlit.sx === sx && lastBlit.sy === sy && lastBlit.w1 === w1 && lastBlit.h1 === h1 && lastBlit.dy === dy && lastBlit.dx + lastBlit.w2 === dx ) {
-                    if ( ! lastBlit.img ) {
-                        var source = [sx, sy, w1, h1].join('');
-                        var canvas = _canvasCache[source];
-                        if ( ! canvas ) {
-                          canvas = _canvasCache[source] = document.createElement('canvas');
+                    //clear the frame if we are an iframe (much faster than clearing each blit)
+                    if (frameType === 0 && !isIFrame) {
+                        isIFrame = true;
+                        var displayWidth = self._jsonData.framesize.width;
+                        var displayHeight = self._jsonData.framesize.height;
+                        ctx.clearRect(0, 0, displayWidth, displayHeight);
+                        if ( ! cached ) {
+                          _cached.ctx.clearRect(0, 0, displayWidth, displayHeight);
                         }
-                        var ctx = canvas.getContext('2d');
-                        canvas.width = w2;
-                        canvas.height = h2;
-                        ctx.drawImage(blit.imgBit, sx, sy, w1, h1, 0, 0, w2, h2);
-                        lastBlit.img = self._canvas.getContext('2d').createPattern(canvas, 'repeat');
                     }
-                    lastBlit.w2 += w2;
-                    continue;
-                }
-                blit.blits.push(obj);
 
-            }
+                    var offset = bitStream.bytePos();
 
-            // This might be overkill, but let's give it a try
-            for ( var i = blit.blits.length - 1; i >= 1; --i ) {
-              var lastBlit = blit.blits[i-1];
-              var thisBlit = blit.blits[i];
-              if ( lastBlit && lastBlit.sx === thisBlit.sx && lastBlit.sy === thisBlit.sy && lastBlit.w1 === thisBlit.w1 && lastBlit.h1 === thisBlit.h1 && lastBlit.dx === thisBlit.dx && lastBlit.w2 === thisBlit.w2 ) {
-                lastBlit.h2 += thisBlit.h2;
-                blit.blits.splice(i, 1);
-              }
-            }
+                    for (var i = 0; i < blitArrayByteCount; i++) {
 
-            cachedBitStream.push(blit);
-        }
-        Base64BitStream.cache[blits] = cachedBitStream;
-      }
+                        var sx = readBits(srcXYBitDepth) * blockSize;
+                        var sy = readBits(srcXYBitDepth) * blockSize;
 
-      return cachedBitStream;
+                        var w1 = 1 * blockSize;
+                        var h1 = 1 * blockSize;
+                        if (srcWidthBitDepth > 0) {
+                            w1 = (readBits(srcWidthBitDepth) + 1) * blockSize;
+                        }
+                        if (srcHeightBitDepth > 0) {
+                            h1 = (readBits(srcHeightBitDepth) + 1) * blockSize;
+                        }
 
-    };
+                        var dx = readBits(destXBitDepth) * blockSize;
+                        var dy = readBits(destYBitDepth) * blockSize;
 
-    var _doFrameBlits = function(blits, clearBeforeBlitting, debugBlits)
-    {
-        debugBlits = (typeof debugBlits === "undefined") ? false : debugBlits;
-        var ctx = self._canvas.getContext('2d');
-        var isIFrame = false;
-        var thisDraw = {};
+                        var w2 = w1;
+                        var h2 = h1;
+                        if (destWidthBitDepth > 0) {
+                            w2 = (readBits(destWidthBitDepth) + 1) * blockSize;
+                        }
+                        if (destHeightBitDepth > 0) {
+                            h2 = (readBits(destHeightBitDepth) + 1) * blockSize;
+                        }
 
-        var i = 0;
-        var bitStream = _buildbitStreamObj(blits);
-        var bit;
-        var blit;
+                        //clear the blit if we are a pframe
+                        if (frameType == 1 && clearBeforeBlitting) {
+                            ctx.clearRect(dx, dy, w2, h2);
+                        }
+                        ctx.drawImage(self._imgArray[imgindex], sx, sy, w1, h1, dx, dy, w2, h2);
+                        if ( ! cached ) {
+                          _cached.ctx.drawImage(self._imgArray[imgindex], sx, sy, w1, h1, dx, dy, w2, h2);
+                        }
 
-        while ( bit = bitStream[i++] ) {
-            var j = 0;
-            //clear the frame if we are an iframe (much faster than clearing each blit)
-            if(bit.frameType === 0 && !isIFrame){
-                isIFrame = true;
-                var displayWidth = self._jsonData.framesize.width;
-                var displayHeight = self._jsonData.framesize.height;
-                ctx.clearRect(0, 0, displayWidth, displayHeight);
-            }
-
-            while ( ( blit = bit.blits[j++] ) ) {
-                if ( blit === 'combined' ) continue;
-                var dx = blit.dx;
-                var dy = blit.dy;
-                var sx = blit.sx;
-                var sy = blit.sy;
-                var w1 = blit.w1;
-                var w2 = blit.w2;
-                var h1 = blit.h1;
-                var h2 = blit.h2;
-
-
-                //clear the blit if we are a pframe
-                if(bit.frameType == 1 && clearBeforeBlitting){
-                    ctx.clearRect(dx, dy, w2, h2);
-                }
-                if ( ! blit.img ) {
-                    ctx.drawImage(bit.imgBit, sx, sy, w1, h1, dx, dy, w2, h2);
-                } else {
-                    var oldFill = ctx.fillStyle;
-                    ctx.fillStyle = blit.img;
-                    ctx.fillRect(dx, dy, w2, h2);
-                    ctx.fillStyle = oldFill;
-                }
-
-                if(debugBlits){
-                    ctx.lineWidth = 1;
-                    ctx.strokeStyle = "red";
-                    ctx.strokeRect(dx+1,dy+1,w2-2,h2-2);
-                }
-
-            }
-        }
-        isReady = true;
-
-    };
-
-    var animate = function()
-    {
-
-        var metadata = self._jsonData;
-        var dataVersion = metadata.version;
-
-        var ctx = self._canvas.getContext('2d');
-        if(dataVersion > self.frameworkVersion) {
-            alertFrameworkVersion(dataVersion);
-            return;
-        }
-
-        var clearBeforeBlitting = metadata.hasAlpha;
-
-        var lastTime = 0;
-        var frameDelay = 0
-
-        var f = function(now)
-        {
-            var frames = metadata.frames;
-
-            if (self._animationId === -1) return;
-
-            if (lastTime > 0 && (now - lastTime < frameDelay)) {
-                requestAnimationFrame(f);
-                return
-            }
-
-            if(self._debug){
-                var lastFrameBlits = frames[self._currentFrameNumber - 1];
-                if(lastFrameBlits){
-                    _doFrameBlits(lastFrameBlits.x, clearBeforeBlitting);
+                        if (debugBlits) {
+                            ctx.lineWidth = 1;
+                            ctx.strokeStyle = "red";
+                            ctx.strokeRect(dx + 1, dy + 1, w2 - 2, h2 - 2);
+                        }
+                    }
                 }
             }
+        };
 
-            var blits = frames[self._currentFrameNumber];
-            if(blits){
-                var frameduration = blits.d;
-                _doFrameBlits(blits.x, clearBeforeBlitting, self._debug);
+    var _doFrameBlits = function(blits, clearBeforeBlitting, debugBlits) {
+            debugBlits = (typeof debugBlits === "undefined") ? false : debugBlits;
+
+            var bitStream = _getStream(blits);
+
+            if (!bitStream.cached) {
+                _doOriginalFrameBlits(blits, bitStream, clearBeforeBlitting, debugBlits);
+            } else {
+                self._canvas.getContext('2d').drawImage(bitStream.buffer, 0, 0);
             }
 
-            if(self._currentFrameCallback) {
-                if(blits && blits.hasOwnProperty("m")) {
-                    self._currentFrameCallback(self._currentFrameNumber, blits.m);
-                }
-                else {
-                    self._currentFrameCallback(self._currentFrameNumber, null);
-                }
-
-            }
-
-            self._currentFrameNumber++;
-
-            if(self._currentFrameNumber == frames.length){
-
-                if(self._playbackFinishedCallback) {
-                    self._playbackFinishedCallback();
-                }
-
-                if(self._loop){
-                    self._currentFrameNumber = 0;
-                }else{
-                    return;
-                }
-            }
-
-            frameDelay = frameduration * 1000 / metadata.timescale;
-            lastTime = now;
-            self._animationId = requestAnimationFrame(f);
 
         };
 
-        self._animationId = requestAnimationFrame(f);
-    };
+    var animate = function() {
 
-    var drawCurrentFrame = function()
-    {
-        if ( ! isReady ) return;
-        isReady = false;
-        var metadata = self._jsonData;
-        var dataVersion = metadata.version;
+            var metadata = self._jsonData;
+            var dataVersion = metadata.version;
 
-        var ctx = self._canvas.getContext('2d');
+            var ctx = self._canvas.getContext('2d');
+            if (dataVersion > self.frameworkVersion) {
+                alertFrameworkVersion(dataVersion);
+                return;
+            }
 
-        if(dataVersion > self.frameworkVersion) {
-            alertFrameworkVersion(dataVersion);
-            return;
-        }
+            var clearBeforeBlitting = metadata.hasAlpha;
 
-        var clearBeforeBlitting = metadata.hasAlpha;
-        var displayWidth = metadata.framesize.width;
-        var displayHeight = metadata.framesize.height;
+            var lastTime = 0;
+            var frameDelay = 0
 
-        var frames = metadata.frames;
+            var f = function(now) {
+                    var frames = metadata.frames;
 
-        if(clearBeforeBlitting){
-            ctx.clearRect(0, 0, displayWidth, displayHeight);
-        }
+                    if (self._animationId === -1) return;
 
-        var blits = frames[self._currentFrameNumber];
-        var frameduration = blits.d;
-        _doFrameBlits(blits.x, clearBeforeBlitting, self._debug);
+                    if (lastTime > 0 && (now - lastTime < frameDelay)) {
+                        requestAnimationFrame(f);
+                        return
+                    }
 
-    };
+                    if (self._debug) {
+                        var lastFrameBlits = frames[self._currentFrameNumber - 1];
+                        if (lastFrameBlits) {
+                            _doFrameBlits(lastFrameBlits.x, clearBeforeBlitting);
+                        }
+                    }
 
-    this.load_animation = function(parameters)
-    {
+                    var blits = frames[self._currentFrameNumber];
+                    if (blits) {
+                        var frameduration = blits.d;
+                        _doFrameBlits(blits.x, clearBeforeBlitting, self._debug);
+                    }
+
+                    if (self._currentFrameCallback) {
+                        if (blits && blits.hasOwnProperty("m")) {
+                            self._currentFrameCallback(self._currentFrameNumber, blits.m);
+                        } else {
+                            self._currentFrameCallback(self._currentFrameNumber, null);
+                        }
+
+                    }
+
+                    self._currentFrameNumber++;
+
+                    if (self._currentFrameNumber == frames.length) {
+
+                        if (self._playbackFinishedCallback) {
+                            self._playbackFinishedCallback();
+                        }
+
+                        if (self._loop) {
+                            self._currentFrameNumber = 0;
+                        } else {
+                            return;
+                        }
+                    }
+
+                    frameDelay = frameduration * 1000 / metadata.timescale;
+                    lastTime = now;
+                    self._animationId = requestAnimationFrame(f);
+
+                };
+
+            self._animationId = requestAnimationFrame(f);
+        };
+
+    var drawCurrentFrame = function() {
+            var metadata = self._jsonData;
+            var dataVersion = metadata.version;
+
+            var ctx = self._canvas.getContext('2d');
+
+            if (dataVersion > self.frameworkVersion) {
+                alertFrameworkVersion(dataVersion);
+                return;
+            }
+
+            var clearBeforeBlitting = metadata.hasAlpha;
+            var displayWidth = metadata.framesize.width;
+            var displayHeight = metadata.framesize.height;
+
+            var frames = metadata.frames;
+
+            if (clearBeforeBlitting) {
+                ctx.clearRect(0, 0, displayWidth, displayHeight);
+            }
+
+            var blits = frames[self._currentFrameNumber];
+            var frameduration = blits.d;
+            _doFrameBlits(blits.x, clearBeforeBlitting, self._debug);
+
+        };
+
+    this.load_animation = function(parameters) {
         self._atlasImagesLoaded = false;
         self.img_urls = parameters.imageArray;
         self.img_path = parameters.imagePath;
@@ -513,7 +454,7 @@ function PhosphorPlayer(bindto_id){
         self._currentFrameCallback = parameters.currentFrameCallback;
         self._playbackFinishedCallback = parameters.playbackFinishedCallback;
         self.loadOneImage = function() {
-            if(self.img_urls.length > 0){
+            if (self.img_urls.length > 0) {
 
                 var img = new Image();
                 img.onload = function() {
@@ -521,13 +462,12 @@ function PhosphorPlayer(bindto_id){
                     self.loadOneImage();
                 };
 
-                if(self.img_path && self.img_path.length>0) {
+                if (self.img_path && self.img_path.length > 0) {
                     img.src = self.img_path + self.img_urls.shift();
-                }
-                else {
+                } else {
                     img.src = self.img_urls.shift();
                 }
-            }else{
+            } else {
                 self._atlasImagesLoaded = true;
                 self._onLoadHandler();
                 return;
@@ -540,86 +480,77 @@ function PhosphorPlayer(bindto_id){
 
     };
 
-    this.play = function()
-    {
+    this.play = function() {
         if (self._animationId !== -1) {
             return;
         }
 
         if (self._canvas && self._canvas.getContext && self._jsonData && self._atlasImagesLoaded) {
             animate();
-        }
-        else {
-            setTimeout(function(){ self.play(); }, 100);
+        } else {
+            setTimeout(function() {
+                self.play();
+            }, 100);
         }
 
     };
 
-    this.stop = function()
-    {
+    this.stop = function() {
         if (self._animationId === -1) {
             return;
         }
+
         cancelAnimationFrame(self._animationId);
         self._animationId = -1;
     };
 
-    this.currentFrameNumber = function()
-    {
+    this.currentFrameNumber = function() {
         return self._currentFrameNumber;
     };
 
-    this.setCurrentFrameNumber = function(frameNum)
-    {
+    this.setCurrentFrameNumber = function(frameNum) {
         self._currentFrameNumber = frameNum;
         drawCurrentFrame();
     };
 
-    this.debug = function(setdebug)
-    {
+    this.debug = function(setdebug) {
         self._debug = setdebug;
     };
 
-    this.loop = function (setLoop) {
+    this.loop = function(setLoop) {
         self._loop = setLoop;
     };
 
-    this.width = function() {
-        return self._canvas.width;
-    }
+    var _bind = function(img_id) {
+            var imgdiv = document.getElementById(img_id);
+            var parent = imgdiv.parentNode;
 
-    var _bind = function(img_id)
-    {
-        var imgdiv = document.getElementById(img_id);
-        var parent = imgdiv.parentNode;
+            self._canvas = document.createElement('canvas');
 
-        self._canvas = document.createElement('canvas');
+            var canvascheck = (self._canvas.getContext) ? true : false
+            if (!canvascheck) {
+                return false;
+            }
 
-        var canvascheck=(self._canvas.getContext)? true : false
-        if(!canvascheck) {
-            return false;
-        }
+            self._canvas.id = imgdiv.id;
+            self._canvas.width = imgdiv.width;
+            self._canvas.height = imgdiv.height;
+            self._canvas.style.cssText = 'display:block;';
 
-        self._canvas.id = imgdiv.id;
-        self._canvas.width = imgdiv.width;
-        self._canvas.height = imgdiv.height;
-        self._canvas.style.cssText = 'display:block;';
-
-        if(imgdiv.complete) {
-            parent.replaceChild(self._canvas,imgdiv);
-            var context = self._canvas.getContext("2d");
-            context.drawImage(imgdiv, 0,0);
-        }
-        else {
-            imgdiv.onload = function() {
-                parent.replaceChild(self._canvas,imgdiv);
+            if (imgdiv.complete) {
+                parent.replaceChild(self._canvas, imgdiv);
                 var context = self._canvas.getContext("2d");
-                context.drawImage(imgdiv, 0,0);
-            };
-        }
+                context.drawImage(imgdiv, 0, 0);
+            } else {
+                imgdiv.onload = function() {
+                    parent.replaceChild(self._canvas, imgdiv);
+                    var context = self._canvas.getContext("2d");
+                    context.drawImage(imgdiv, 0, 0);
+                };
+            }
 
 
-    };
+        };
 
     _bind(bindto_id);
 
